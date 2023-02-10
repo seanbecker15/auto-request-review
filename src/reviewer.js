@@ -27,7 +27,7 @@ function fetch_other_group_members({ author, config }) {
   ).filter((group_name) => group_name);
 
   const other_group_members = belonging_group_names.flatMap((group_name) =>
-    groups[group_name]
+    randomly_pick_reviewers_from_groups({ reviewers: groups[group_name], config })
   ).filter((group_member) => group_member !== author);
 
   return [ ...new Set(other_group_members) ];
@@ -59,7 +59,7 @@ function identify_reviewers_by_changed_files({ config, changed_files, excludes =
     }
   });
 
-  const individuals = replace_groups_with_individuals({ reviewers: matching_reviewers, config });
+  const individuals = randomly_pick_reviewers_from_groups({ reviewers: matching_reviewers, config });
 
   // Depue and filter the results
   return [ ...new Set(individuals) ].filter((reviewer) => !excludes.includes(reviewer));
@@ -136,6 +136,24 @@ function randomly_pick_reviewers({ reviewers, config }) {
 }
 
 /* Private */
+
+function randomly_pick_reviewers_from_groups({ reviewers, config }) {
+  const groups = (config.reviewers && config.reviewers.groups) || {};
+  const { groups: groups_options } = { ...config.options };
+
+  return reviewers.flatMap((reviewer) => {
+    let individuals = Array.isArray(groups[reviewer]) ? groups[reviewer] : [ reviewer ];
+
+    if (groups_options !== undefined) {
+      const num_reviewers_for_group = (groups_options[reviewer] || {}).number_of_reviewers;
+      if (num_reviewers_for_group !== undefined) {
+        individuals = sample_size(groups[reviewer], num_reviewers_for_group);
+      }
+    }
+
+    return individuals;
+  });
+}
 
 function replace_groups_with_individuals({ reviewers, config }) {
   const groups = (config.reviewers && config.reviewers.groups) || {};
