@@ -45,25 +45,61 @@ describe('reviewer', function() {
     });
 
     context('when "enable_group_assignment" is true', function() {
-      const config = {
-        ...base_config,
-        options: {
-          enable_group_assignment: true,
-        },
-      };
 
-      it('returns all of the other members of the team if the auther belongs to one team', function() {
-        const author = 'luigi';
-        const other_group_members = [ 'mario', 'dr-mario' ];
+      context('when "number_of_reviewers" is not set', function() {
+        const config = {
+          ...base_config,
+          options: {
+            enable_group_assignment: true,
+          },
+        };
 
-        expect(fetch_other_group_members({ author, config })).to.have.members(other_group_members);
+        it('returns all of the other members of the team if the auther belongs to one team', function() {
+          const author = 'luigi';
+          const other_group_members = [ 'mario', 'dr-mario' ];
+
+          expect(fetch_other_group_members({ author, config })).to.have.members(other_group_members);
+        });
+
+        it('returns all of the other members of the teams if the author belongs to more than one team', function() {
+          const author = 'mario';
+          const other_group_members = [ 'dr-mario', 'luigi', 'wario' ];
+
+          expect(fetch_other_group_members({ author, config })).to.have.members(other_group_members);
+        });
       });
 
-      it('returns all of the other members of the teams if the author belongs to more than one team', function() {
-        const author = 'mario';
-        const other_group_members = [ 'dr-mario', 'luigi', 'wario' ];
+      context('when "number_of_reviewers" is set', function() {
+        const config = {
+          ...base_config,
+          options: {
+            enable_group_assignment: true,
+            groups: {
+              'mario-brothers': {
+                number_of_reviewers: 1,
+              },
+            },
+          },
+        };
 
-        expect(fetch_other_group_members({ author, config })).to.have.members(other_group_members);
+        it('returns a single member of the team if the auther belongs to one team', function() {
+          const author = 'luigi';
+          const other_group_members = [ 'mario', 'dr-mario' ];
+
+          expect(fetch_other_group_members({ author, config })).to.include.oneOf(other_group_members);
+        });
+
+        it('returns a subset of the other members if the author belongs to more than one team', function() {
+          const author = 'mario';
+
+          const other_group_members_required = [ 'dr-mario', 'wario' ];
+          const other_group_members_random_single = [ 'dr-mario', 'luigi' ];
+          const members = fetch_other_group_members({ author, config });
+
+          expect(members).to.include.members(other_group_members_required);
+          expect(members).to.include.oneOf(other_group_members_random_single);
+        });
+
       });
     });
   });
@@ -95,21 +131,6 @@ describe('reviewer', function() {
       expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'mario', 'luigi' ]);
     });
 
-    it('returns matching reviewers specified as groups', function() {
-      const changed_files = [ 'backend/path/to/file' ];
-      expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'mario', 'luigi', 'wario', 'waluigi' ]);
-    });
-
-    it('works with a mix of groups and individuals', function() {
-      const changed_files = [ 'frontend/path/to/file' ];
-      expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'princess-peach', 'toad' ]);
-    });
-
-    it('dedupes matching reviewers', function() {
-      const changed_files = [ 'super-star', 'frontend/file', 'backend/file' ];
-      expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'mario', 'luigi', 'wario', 'waluigi', 'princess-peach', 'toad' ]);
-    });
-
     it('excludes specified reviewers in the "excludes" option', function() {
       const changed_files = [ 'super-star', 'frontend/file', 'backend/file' ];
       const excludes = [ 'wario', 'waluigi' ];
@@ -125,6 +146,57 @@ describe('reviewer', function() {
         },
       };
       expect(identify_reviewers_by_changed_files({ config: config_with_last_files_match_only, changed_files })).to.have.members([ 'mario', 'someone-specific' ]);
+    });
+
+
+    context('when "number_of_reviewers" is not set for any groups', function () {
+      it('returns matching reviewers specified as groups', function() {
+        const changed_files = [ 'backend/path/to/file' ];
+        expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'mario', 'luigi', 'wario', 'waluigi' ]);
+      });
+
+      it('works with a mix of groups and individuals', function() {
+        const changed_files = [ 'frontend/path/to/file' ];
+        expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'princess-peach', 'toad' ]);
+      });
+
+      it('dedupes matching reviewers', function() {
+        const changed_files = [ 'super-star', 'frontend/file', 'backend/file' ];
+        expect(identify_reviewers_by_changed_files({ config, changed_files })).to.have.members([ 'mario', 'luigi', 'wario', 'waluigi', 'princess-peach', 'toad' ]);
+      });
+    });
+
+    context('when "number_of_reviewers" is set for a group', function() {
+      const config_with_group_num_reviewers = {
+        ...config,
+        options: {
+          groups: {
+            'backend-engineers': {
+              number_of_reviewers: 2,
+            },
+          },
+        },
+      };
+      it('returns matching reviewers specified as groups', function() {
+        const changed_files = [ 'backend/path/to/file' ];
+        const randomly_selected_from_group = identify_reviewers_by_changed_files({ config: config_with_group_num_reviewers, changed_files });
+        expect([ 'mario', 'luigi', 'wario', 'waluigi' ]).to.include.members(randomly_selected_from_group);
+        expect(new Set(randomly_selected_from_group)).to.have.lengthOf(2);
+      });
+
+      it('works with a mix of groups and individuals', function() {
+        const changed_files = [ 'frontend/file', 'backend/file' ];
+        const randomly_selected_from_group = identify_reviewers_by_changed_files({ config: config_with_group_num_reviewers, changed_files });
+        expect(randomly_selected_from_group).to.include.members([ 'princess-peach', 'toad' ]);
+        expect([ 'mario', 'luigi', 'wario', 'waluigi', 'princess-peach', 'toad' ]).to.include.members(randomly_selected_from_group);
+        expect(new Set(randomly_selected_from_group)).to.have.lengthOf(4);
+      });
+
+      it('dedupes matching reviewers', function() {
+        const changed_files = [ 'super-star', 'frontend/file', 'backend/file' ];
+        const randomly_selected_from_group = identify_reviewers_by_changed_files({ config: config_with_group_num_reviewers, changed_files });
+        expect(new Set(randomly_selected_from_group)).to.have.lengthOf(randomly_selected_from_group.length);
+      });
     });
   });
 
