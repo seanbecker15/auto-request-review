@@ -46,6 +46,17 @@ describe('reviewer', function() {
 
     context('when "enable_group_assignment" is true', function() {
 
+      it('returns no members when there are not any groups provided', function() {
+        const author = 'this-does-not-matter';
+        const config = {
+          options: {
+            enable_group_assignment: true,
+          },
+        };
+
+        expect(fetch_other_group_members({ author, config })).to.deep.equal([]);
+      });
+
       context('when "number_of_reviewers" is not set', function() {
         const config = {
           ...base_config,
@@ -124,6 +135,23 @@ describe('reviewer', function() {
     it('returns nothing when config does not have a "files" key', function() {
       const changed_files = [ 'THIS DOES NOT MATTER' ];
       expect(identify_reviewers_by_changed_files({ config: {}, changed_files })).to.deep.equal([]);
+    });
+
+    it('returns nothing when group "number of reviewers" option is provided for a group that does not exist', function () {
+      const changed_files = [ 'THIS DOES NOT MATTER' ];
+      const invalid_config = {
+        files: {
+          'some-file': [ 'some-person' ],
+        },
+        options: {
+          groups: {
+            'does-not-exist': {
+              number_of_reviewers: 2,
+            },
+          },
+        },
+      };
+      expect(identify_reviewers_by_changed_files({ config: invalid_config, changed_files })).to.deep.equal([]);
     });
 
     it('returns matching reviewers specified as individuals', function() {
