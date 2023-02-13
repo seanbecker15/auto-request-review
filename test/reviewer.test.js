@@ -148,7 +148,6 @@ describe('reviewer', function() {
       expect(identify_reviewers_by_changed_files({ config: config_with_last_files_match_only, changed_files })).to.have.members([ 'mario', 'someone-specific' ]);
     });
 
-
     context('when "number_of_reviewers" is not set for any groups', function () {
       it('returns matching reviewers specified as groups', function() {
         const changed_files = [ 'backend/path/to/file' ];
@@ -190,6 +189,13 @@ describe('reviewer', function() {
         expect(randomly_selected_from_group).to.include.members([ 'princess-peach', 'toad' ]);
         expect([ 'mario', 'luigi', 'wario', 'waluigi', 'princess-peach', 'toad' ]).to.include.members(randomly_selected_from_group);
         expect(new Set(randomly_selected_from_group)).to.have.lengthOf(4);
+      });
+
+      it('returns a valid number of reviewers when a reviewer is passed in to "excludes" option', function() {
+        const changed_files = [ 'backend/file' ];
+        const excludes = [ 'mario', 'luigi' ];
+        const randomly_selected_from_group = identify_reviewers_by_changed_files({ config: config_with_group_num_reviewers, changed_files, excludes });
+        expect(new Set(randomly_selected_from_group)).to.have.lengthOf(2);
       });
 
       it('dedupes matching reviewers', function() {

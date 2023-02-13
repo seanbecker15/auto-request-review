@@ -59,7 +59,7 @@ function identify_reviewers_by_changed_files({ config, changed_files, excludes =
     }
   });
 
-  const individuals = randomly_pick_reviewers_from_groups({ reviewers: matching_reviewers, config });
+  const individuals = randomly_pick_reviewers_from_groups({ reviewers: matching_reviewers, config, excludes });
 
   // Depue and filter the results
   return [ ...new Set(individuals) ].filter((reviewer) => !excludes.includes(reviewer));
@@ -137,17 +137,21 @@ function randomly_pick_reviewers({ reviewers, config }) {
 
 /* Private */
 
-function randomly_pick_reviewers_from_groups({ reviewers, config }) {
+function randomly_pick_reviewers_from_groups({ reviewers, config, excludes }) {
   const groups = (config.reviewers && config.reviewers.groups) || {};
   const { groups: groups_options } = { ...config.options };
 
   return reviewers.flatMap((reviewer) => {
     let individuals = Array.isArray(groups[reviewer]) ? groups[reviewer] : [ reviewer ];
 
+    if (excludes && excludes.length > 0) {
+      individuals = individuals.filter((individual) => !excludes.includes(individual));
+    }
+
     if (groups_options !== undefined) {
       const num_reviewers_for_group = (groups_options[reviewer] || {}).number_of_reviewers;
       if (num_reviewers_for_group !== undefined) {
-        individuals = sample_size(groups[reviewer], num_reviewers_for_group);
+        individuals = sample_size(individuals, num_reviewers_for_group);
       }
     }
 
